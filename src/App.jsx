@@ -1,42 +1,45 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { STATS, XP_BY_DIFFICULTY, gainXp, loseXp, characterLevel, streakBonus, auraCharge, honorDelta, auraTier, AURA_NAMES } from './game/engine';
-import { mockPlayer, mockQuests, mockHistories } from './game/mockData';
+import { loadSave, persist, wipeSave, freshPlayer, todayKey, buildHistories } from './game/storage';
 import Avatar from './components/Avatar';
 import StatPanel from './components/StatPanel';
 import QuestPath from './components/QuestPath';
 import MentorPanel from './components/MentorPanel';
 import ProgressGraph from './components/ProgressGraph';
 import LevelUpOverlay from './components/LevelUpOverlay';
+import Onboarding from './components/Onboarding';
 import { FlameIcon, MoonIcon, ShieldIcon, STAT_ICONS } from './components/Icons';
 import { useMentor } from './mentor/useMentor';
 import './App.css';
 
 export default function App() {
-  const [player, setPlayer] = useState(mockPlayer);
-  const [quests, setQuests] = useState(mockQuests);
+  const [save, setSave] = useState(() => loadSave());
   const [levelUp, setLevelUp] = useState(null);
   const [editingName, setEditingName] = useState(false);
-  const nextQuestId = useRef(100);
+  const nextQuestId = useRef(Date.now());
 
-  // Refs mirror state so mentor tool executors always read/write the
-  // latest values (tool calls arrive async, between renders).
-  const playerRef = useRef(player);
-  playerRef.current = player;
-  const questsRef = useRef(quests);
-  questsRef.current = quests;
+  // Ref mirror so async mentor tool calls always see the latest state
+  const saveRef = useRef(save);
+  saveRef.current = save;
 
-  const level = characterLevel(player.stats);
-  const charge = auraCharge(quests);
+  useEffect(() => {
+    if (save) persist(save);
+  }, [save]);
 
-  const saveName = (v) => {
-    const name = v.trim().toUpperCase();
-    if (name) setPlayer((p) => ({ ...p, name }));
-    setEditingName(false);
-  };
+  const update = (fn) => setSave((s) => fn(s));
+  const setPlayer = (fn) => update((s) => ({ ...s, player: fn(s.player) }));
+  const setQuests = (fn) => update((s) => ({ ...s, quests: fn(s.quests) }));
 
   const grantXp = (statKey, xp) => {
-    const after = gainXp(playerRef.current.stats[statKey], xp);
-    setPlayer((p) => ({ ...p, stats: { ...p.stats, [statKey]: { level: after.level, xp: after.xp } } }));
+    const after = gainXp(saveRef.current.player.stats[statKey], xp);
+    const day = todayKey();
+    const hour = new Date().getHours();
+    update((s) => ({
+      ...s,
+      player: { ...s.player, stats: { ...s.player.stats, [statKey]: { level: after.level, xp: after.xp } } },
+      xpLog: { ...s.xpLog, [day]: (s.xpLog[day] ?? 0) + xp },
+      todayHours: { ...s.todayHours, [hour]: (s.todayHours[hour] ?? 0) + xp },
+    }));
     if (after.leveledUp) {
       setLevelUp({ ...STATS[statKey], level: after.level });
       setTimeout(() => setLevelUp(null), 2200);
@@ -44,21 +47,24 @@ export default function App() {
   };
 
   const completeQuest = (id, log) => {
-    const quest = questsRef.current.find((q) => q.id === id);
+    const quest = saveRef.current.quests.find((q) => q.id === id);
     if (!quest || quest.done) return;
     setQuests((qs) => qs.map((q) => (q.id === id ? { ...q, done: true, log } : q)));
     setPlayer((p) => ({ ...p, honor: Math.max(0, Math.min(100, p.honor + honorDelta(log))) }));
-    grantXp(quest.stat, Math.round(XP_BY_DIFFICULTY[quest.difficulty] * streakBonus(playerRef.current.streak)));
+    grantXp(quest.stat, Math.round(XP_BY_DIFFICULTY[quest.difficulty] * streakBonus(saveRef.current.player.streak)));
   };
 
   // ── Mentor tool executors: the contract between brain and game ──
   const mentor = useMentor({
-    getState: () => ({
-      player: playerRef.current,
-      today: new Date().toDateString(),
-      quests: questsRef.current.map(({ id, title, stat, difficulty, done, log }) => ({ id, title, stat, difficulty, done, log })),
-      auraChargePct: Math.round(auraCharge(questsRef.current) * 100),
-    }),
+    getState: () => {
+      const s = saveRef.current;
+      return {
+        player: s.player,
+        today: new Date().toDateString(),
+        quests: s.quests.map(({ id, title, stat, difficulty, done, log }) => ({ id, title, stat, difficulty, done, log })),
+        auraChargePct: Math.round(auraCharge(s.quests) * 100),
+      };
+    },
     generateQuest: ({ title, stat, difficulty }) => {
       const id = nextQuestId.current++;
       setQuests((qs) => [...qs.filter((q) => !q.boss), { id, title, stat, difficulty, done: false, source: 'mentor', log: '' }, ...qs.filter((q) => q.boss)]);
@@ -87,7 +93,6 @@ export default function App() {
       return `Bonus +${xp} XP to ${stat}. Reason: ${reason}`;
     },
     scheduleReminder: ({ message, time, urgency }) => {
-      // Phase 3 persists these; for now reminders live for this session
       const delay = (() => {
         const [h, m] = time.split(':').map(Number);
         const t = new Date(); t.setHours(h, m, 0, 0);
@@ -103,6 +108,35 @@ export default function App() {
     setMode: ({ mode }) => `Mode switched to ${mode}.`,
   });
 
+  if (!save) {
+    return (
+      <Onboarding
+        onStart={(name, goals) => {
+          const s = {
+            player: freshPlayer(name, goals),
+            quests: [],
+            xpLog: {},
+            todayHours: {},
+            restDayArmed: false,
+            lastDate: todayKey(),
+          };
+          persist(s);
+          setSave(s);
+        }}
+      />
+    );
+  }
+
+  const { player, quests } = save;
+  const level = characterLevel(player.stats);
+  const charge = auraCharge(quests);
+
+  const saveName = (v) => {
+    const name = v.trim().toUpperCase();
+    if (name) setPlayer((p) => ({ ...p, name }));
+    setEditingName(false);
+  };
+
   return (
     <div className="app">
       <header className="hud">
@@ -110,7 +144,13 @@ export default function App() {
         <div className="hud-right">
           <span className="hud-chip streak"><FlameIcon /> {player.streak} DAY STREAK</span>
           <span className="hud-chip honor" title="Integrity score. Quests are completed on your word — writing a real one-line log of what you did keeps Honor high; blank or lazy logs erode it. Your mentor reads the logs."><ShieldIcon /> HONOR {player.honor}</span>
-          <span className="hud-chip rest"><MoonIcon /> {player.restDaysEarned} REST DAY</span>
+          <button
+            className={`hud-chip rest ${save.restDayArmed ? 'armed' : ''}`}
+            title={player.restDaysEarned > 0 ? 'Click to use a rest day today — your streak survives with zero quests done' : 'Earn rest days through streaks — the mentor grants them'}
+            onClick={() => player.restDaysEarned > 0 && update((s) => ({ ...s, restDayArmed: !s.restDayArmed }))}
+          >
+            <MoonIcon /> {save.restDayArmed ? 'RESTING TODAY' : `${player.restDaysEarned} REST DAY`}
+          </button>
         </div>
       </header>
 
@@ -151,15 +191,28 @@ export default function App() {
       <main className="layout">
         <section className="col">
           <StatPanel stats={player.stats} />
-          <ProgressGraph histories={mockHistories} />
+          <ProgressGraph histories={buildHistories(save.xpLog, save.todayHours)} />
         </section>
         <section className="col">
-          <QuestPath quests={quests} onComplete={completeQuest} />
+          <QuestPath
+            quests={quests}
+            onComplete={completeQuest}
+            onAdd={({ title, stat, difficulty }) => {
+              const id = nextQuestId.current++;
+              setQuests((qs) => [...qs.filter((q) => !q.boss), { id, title, stat, difficulty, done: false, source: 'user', log: '' }, ...qs.filter((q) => q.boss)]);
+            }}
+          />
         </section>
         <section className="col">
           <MentorPanel feed={mentor.feed} onSend={mentor.send} busy={mentor.busy} demoMode={mentor.demoMode} />
         </section>
       </main>
+
+      <footer className="app-foot">
+        <button className="wipe-btn" onClick={() => { if (confirm('Delete your save and start over?')) { wipeSave(); location.reload(); } }}>
+          RESET SAVE
+        </button>
+      </footer>
 
       <LevelUpOverlay info={levelUp} />
     </div>

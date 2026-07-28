@@ -66,12 +66,51 @@ function HoldButton({ color, onHeld }) {
   );
 }
 
-export default function QuestPath({ quests, onComplete }) {
+function AddQuestForm({ onAdd, onClose }) {
+  const [title, setTitle] = useState('');
+  const [stat, setStat] = useState('mind');
+  const [difficulty, setDifficulty] = useState('easy');
+  const submit = () => {
+    if (!title.trim()) return;
+    onAdd({ title: title.trim(), stat, difficulty });
+    onClose();
+  };
+  return (
+    <div className="honor-check">
+      <div className="honor-title">NEW QUEST</div>
+      <input
+        autoFocus value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && submit()}
+        placeholder="What will you do today?"
+      />
+      <div className="aq-row">
+        <select value={stat} onChange={(e) => setStat(e.target.value)}>
+          <option value="mind">Mind</option>
+          <option value="spirit">Spirit</option>
+          <option value="body">Body</option>
+        </select>
+        <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
+          <option value="easy">E-rank (+10)</option>
+          <option value="medium">C-rank (+25)</option>
+          <option value="hard">A-rank (+50)</option>
+        </select>
+      </div>
+      <div className="honor-actions">
+        <button className="ghost" onClick={onClose}>Cancel</button>
+        <button className="solid" onClick={submit}>Add to path</button>
+      </div>
+    </div>
+  );
+}
+
+export default function QuestPath({ quests, onComplete, onAdd }) {
   const [logging, setLogging] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [log, setLog] = useState('');
   const width = 340;
   const count = quests.length;
-  const height = TOP_PAD + (count - 1) * NODE_GAP + 90;
+  const height = TOP_PAD + Math.max(0, count - 1) * NODE_GAP + 90;
 
   const currentIdx = quests.findIndex((q) => !q.done); // -1 = all cleared
   const current = currentIdx >= 0 ? quests[currentIdx] : null;
@@ -91,8 +130,14 @@ export default function QuestPath({ quests, onComplete }) {
         <span className="panel-sub">{doneCount} / {count} cleared</span>
       </div>
 
+      {count === 0 && (
+        <div className="path-empty">
+          Your path is empty. Add a quest below, or ask your mentor to plan your day.
+        </div>
+      )}
+
       <div className="path-scroll">
-        <div className="path-stage" style={{ width, height }}>
+        <div className="path-stage" style={{ width, height: count ? height : 0 }}>
           <svg className="path-trail" width={width} height={height}>
             <path d={trail} fill="none" stroke="#ffffff14" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
             <path d={trail} fill="none" stroke="#ffffff08" strokeWidth="3" strokeDasharray="1 14" strokeLinecap="round" />
@@ -142,8 +187,14 @@ export default function QuestPath({ quests, onComplete }) {
           </div>
           {!logging && <HoldButton color={STATS[current.stat].color} onHeld={() => setLogging(true)} />}
         </div>
-      ) : (
+      ) : count > 0 ? (
         <div className="path-current"><div className="pc-title all-clear">PATH CLEARED — AURA AT FULL BLAZE</div></div>
+      ) : null}
+
+      {adding ? (
+        <AddQuestForm onAdd={onAdd} onClose={() => setAdding(false)} />
+      ) : (
+        <button className="add-quest" onClick={() => setAdding(true)}>+ NEW QUEST</button>
       )}
 
       {logging && current && (
