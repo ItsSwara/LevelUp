@@ -1,0 +1,31 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0a0f;
+  --panel: #0f0f16;
+  --line: #ffffff14;
+  --text: #d8d6e4;
+  --dim: #6f6c85;
+  --accent: #8b5cff;
+  --display: 'Syne', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+html, body, #root { min-height: 100%; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+/* faint grain so the black isn't flat */
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image: radial-gradient(#ffffff08 1px, transparent 1px);
+  background-size: 3px 3px; opacity: 0.35;
+}
+
+::selection { background: var(--accent); color: #fff; }
