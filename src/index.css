@@ -5,10 +5,10 @@
 :root {
   --bg: #0a0a0f;
   --panel: #0f0f16;
-  --line: #ffffff14;
-  --text: #d8d6e4;
-  --dim: #6f6c85;
-  --accent: #8b5cff;
+  --line: #ffffff26;
+  --text: #eeecf7;
+  --dim: #9b98b5;
+  --accent: #8a5cff;
   --display: 'Syne', sans-serif;
   --mono: 'JetBrains Mono', monospace;
 }
@@ -17,6 +17,7 @@ html, body, #root { min-height: 100%; }
 
 body {
   font-family: 'Inter', sans-serif;
+  font-size: 17px;
   color: var(--text);
   background: var(--bg);
 }

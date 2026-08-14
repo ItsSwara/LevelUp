@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { STATS, XP_BY_DIFFICULTY, gainXp, loseXp, characterLevel, streakBonus, auraCharge, honorDelta, auraTier, AURA_NAMES } from './game/engine';
+import { STATS, XP_BY_DIFFICULTY, gainXp, loseXp, characterLevel, streakBonus, auraCharge, honorDelta } from './game/engine';
 import { loadSave, persist, wipeSave, freshPlayer, todayKey, buildHistories } from './game/storage';
 import Avatar from './components/Avatar';
 import StatPanel from './components/StatPanel';
@@ -156,7 +156,7 @@ export default function App() {
 
       <section className="hero-strip">
         <div className="hero-left">
-          <h1 className="hero-name">{AURA_NAMES[auraTier(level)]}</h1>
+          <div className="hero-kicker">LEVEL UP EVERYDAY</div>
           <div className="hero-level-line">
             <span className="hero-level">LV {level}</span>
             <span className="hero-sep" />
@@ -188,12 +188,12 @@ export default function App() {
         <Avatar level={level} charge={charge} />
       </section>
 
+      <p className="system-line">
+        <span className="system-tag">[SYSTEM]</span> Clear quests on the left to level up. Talk to your mentor on the right.
+      </p>
+
       <main className="layout">
-        <section className="col">
-          <StatPanel stats={player.stats} />
-          <ProgressGraph histories={buildHistories(save.xpLog, save.todayHours)} />
-        </section>
-        <section className="col">
+        <section className="col col-quests">
           <QuestPath
             quests={quests}
             onComplete={completeQuest}
@@ -203,8 +203,10 @@ export default function App() {
             }}
           />
         </section>
-        <section className="col">
+        <section className="col col-side">
           <MentorPanel feed={mentor.feed} onSend={mentor.send} busy={mentor.busy} demoMode={mentor.demoMode} />
+          <StatPanel stats={player.stats} />
+          <ProgressGraph histories={buildHistories(save.xpLog, save.todayHours)} />
         </section>
       </main>
 

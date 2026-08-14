@@ -29,10 +29,7 @@ export default function Onboarding({ onStart }) {
       <form className="ob-card" onSubmit={start}>
         <div className="ob-kicker">CHARACTER CREATION</div>
         <h1 className="ob-title">BEGIN YOUR<br />ASCENT</h1>
-        <p className="ob-sub">
-          Three stats. Real-life quests. An AI mentor watching your back.
-          Set the long-term goals your quests will climb toward.
-        </p>
+        <p className="ob-sub">Set your name and one goal per stat. Your mentor turns these into daily quests.</p>
 
         <label className="ob-label">YOUR NAME</label>
         <input
@@ -46,7 +43,7 @@ export default function Onboarding({ onStart }) {
           return (
             <div key={s.key}>
               <label className="ob-label" style={{ color: s.color }}>
-                <Icon width="12" height="12" /> {s.label.toUpperCase()} GOAL
+                <Icon width="15" height="15" /> {s.label.toUpperCase()} GOAL
               </label>
               <input
                 className="ob-input" value={goals[s.key]} maxLength={80}

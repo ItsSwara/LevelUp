@@ -1,5 +1,5 @@
 // Minimal geometric stroke icons — no emoji anywhere in the app.
-const base = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round' };
+const base = { fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' };
 
 export const MindIcon = (p) => (
   <svg viewBox="0 0 24 24" width="16" height="16" {...base} {...p}>
